@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GDXU Signal Engine</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=IBM+Plex+Mono:wght@300;400;600&display=swap');
+
+  :root {
+    --bg: #080c10;
+    --bg2: #0d1117;
+    --bg3: #111820;
+    --border: #1e2d3d;
+    --border2: #243447;
+    --gold: #f5c542;
+    --gold2: #e8a000;
+    --green: #00ff9f;
+    --red: #ff3b5c;
+    --blue: #4af0ff;
+    --dim: #4a6070;
+    --text: #c8d8e8;
+    --text2: #7a9ab0;
+    --glow-gold: 0 0 20px rgba(245,197,66,0.4);
+    --glow-green: 0 0 20px rgba(0,255,159,0.4);
+    --glow-red: 0 0 20px rgba(255,59,92,0.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse at 20% 50%, rgba(245,197,66,0.03) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(74,240,255,0.03) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Scanline effect */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 20px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* HEADER */
+  .header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-left h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 4px;
+    text-shadow: var(--glow-gold);
+    line-height: 1;
+  }
+
+  .header-left .subtitle {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 3px;
+    margin-top: 6px;
+    text-transform: uppercase;
+  }
+
+  .header-right {
+    text-align: right;
+  }
+
+  .live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(0,255,159,0.08);
+    border: 1px solid rgba(0,255,159,0.2);
+    border-radius: 3px;
+    padding: 5px 12px;
+    font-size: 11px;
+    color: var(--green);
+    letter-spacing: 2px;
+  }
+
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 1.5s infinite;
+    box-shadow: 0 0 8px var(--green);
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .timestamp {
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 6px;
+    letter-spacing: 1px;
+  }
+
+  /* MAIN SIGNAL */
+  .signal-card {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    padding: 32px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.5s ease;
+  }
+
+  .signal-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--signal-color, var(--gold));
+    box-shadow: 0 0 20px var(--signal-color, var(--gold));
+    transition: all 0.5s ease;
+  }
+
+  .signal-card.buy { --signal-color: var(--green); }
+  .signal-card.sell { --signal-color: var(--red); }
+  .signal-card.hold { --signal-color: var(--gold); }
+
+  .signal-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+  }
+
+  .signal-label-wrap {
+    flex: 1;
+  }
+
+  .signal-pre {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .signal-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 72px;
+    font-weight: 900;
+    letter-spacing: 8px;
+    line-height: 1;
+    transition: all 0.5s ease;
+  }
+
+  .signal-label.buy { color: var(--green); text-shadow: var(--glow-green); }
+  .signal-label.sell { color: var(--red); text-shadow: var(--glow-red); }
+  .signal-label.hold { color: var(--gold); text-shadow: var(--glow-gold); }
+
+  .signal-desc {
+    font-size: 13px;
+    color: var(--text2);
+    margin-top: 10px;
+    max-width: 340px;
+    line-height: 1.6;
+  }
+
+  /* CONFIDENCE GAUGE */
+  .confidence-wrap {
+    text-align: center;
+    min-width: 160px;
+  }
+
+  .confidence-label {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .gauge {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    margin: 0 auto;
+  }
+
+  .gauge svg {
+    transform: rotate(-90deg);
+  }
+
+  .gauge-track {
+    fill: none;
+    stroke: var(--border2);
+    stroke-width: 8;
+  }
+
+  .gauge-fill {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1),
+                stroke 0.5s ease;
+  }
+
+  .gauge-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .gauge-pct {
+    font-family: 'Orbitron', monospace;
+    font-size: 30px;
+    font-weight: 700;
+    transition: color 0.5s ease;
+  }
+
+  .gauge-sub {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    margin-top: 2px;
+  }
+
+  /* LAYERS GRID */
+  .section-title {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .layers-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .layer-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px 16px;
+    position: relative;
+    transition: border-color 0.3s ease;
+  }
+
+  .layer-card:hover {
+    border-color: var(--border2);
+  }
+
+  .layer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .layer-name {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .layer-badge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border-radius: 2px;
+  }
+
+  .layer-badge.bull {
+    background: rgba(0,255,159,0.12);
+    color: var(--green);
+    border: 1px solid rgba(0,255,159,0.25);
+  }
+
+  .layer-badge.bear {
+    background: rgba(255,59,92,0.12);
+    color: var(--red);
+    border: 1px solid rgba(255,59,92,0.25);
+  }
+
+  .layer-badge.neutral {
+    background: rgba(245,197,66,0.1);
+    color: var(--gold);
+    border: 1px solid rgba(245,197,66,0.2);
+  }
+
+  .layer-badge.na {
+    background: rgba(74,96,112,0.2);
+    color: var(--dim);
+    border: 1px solid rgba(74,96,112,0.3);
+  }
+
+  .layer-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 22px;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .layer-change {
+    font-size: 12px;
+  }
+
+  .layer-change.pos { color: var(--green); }
+  .layer-change.neg { color: var(--red); }
+  .layer-change.neu { color: var(--dim); }
+
+  .layer-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+
+  .layer-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s ease, background 0.5s ease;
+  }
+
+  /* ALIGNMENT ROW */
+  .alignment-card {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .alignment-label {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    min-width: 140px;
+  }
+
+  .alignment-indicators {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex: 1;
+  }
+
+  .align-pill {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 2px;
+    letter-spacing: 1px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .align-pill.bull { background: rgba(0,255,159,0.1); color: var(--green); border: 1px solid rgba(0,255,159,0.2); }
+  .align-pill.bear { background: rgba(255,59,92,0.1); color: var(--red); border: 1px solid rgba(255,59,92,0.2); }
+  .align-pill.neutral { background: rgba(74,96,112,0.15); color: var(--dim); border: 1px solid rgba(74,96,112,0.25); }
+
+  .key-signal {
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 3px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .key-signal.active {
+    background: rgba(0,255,159,0.12);
+    color: var(--green);
+    border: 1px solid rgba(0,255,159,0.3);
+    box-shadow: 0 0 12px rgba(0,255,159,0.15);
+    animation: flash 2s infinite;
+  }
+
+  .key-signal.inactive {
+    background: rgba(74,96,112,0.15);
+    color: var(--dim);
+    border: 1px solid rgba(74,96,112,0.2);
+  }
+
+  @keyframes flash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  /* WEBHOOK PANEL */
+  .webhook-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .webhook-url-box {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    padding: 10px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--blue);
+    margin: 12px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    word-break: break-all;
+  }
+
+  .copy-btn {
+    background: rgba(74,240,255,0.08);
+    border: 1px solid rgba(74,240,255,0.2);
+    color: var(--blue);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 5px 12px;
+    border-radius: 2px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .copy-btn:hover {
+    background: rgba(74,240,255,0.15);
+  }
+
+  .tv-instructions {
+    font-size: 12px;
+    color: var(--text2);
+    line-height: 1.8;
+  }
+
+  .tv-instructions code {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 2px;
+    color: var(--gold);
+    font-size: 11px;
+  }
+
+  /* MANUAL OVERRIDE */
+  .manual-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .inputs-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 14px 0;
+  }
+
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .input-group label {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .input-group input {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    padding: 8px 10px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .input-group input:focus {
+    border-color: var(--gold2);
+  }
+
+  .calc-btn {
+    background: rgba(245,197,66,0.1);
+    border: 1px solid rgba(245,197,66,0.3);
+    color: var(--gold);
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    padding: 10px 24px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .calc-btn:hover {
+    background: rgba(245,197,66,0.18);
+    box-shadow: var(--glow-gold);
+  }
+
+  /* HISTORY LOG */
+  .history-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+  }
+
+  .history-list {
+    max-height: 180px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border2) transparent;
+  }
+
+  .history-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    animation: slideIn 0.3s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .history-row:last-child { border-bottom: none; }
+
+  .h-time { color: var(--dim); min-width: 80px; }
+  .h-signal { font-family: 'Orbitron', monospace; font-size: 11px; font-weight: 700; min-width: 50px; }
+  .h-signal.buy { color: var(--green); }
+  .h-signal.sell { color: var(--red); }
+  .h-signal.hold { color: var(--gold); }
+  .h-conf { color: var(--text2); min-width: 60px; }
+  .h-reason { color: var(--dim); font-size: 11px; flex: 1; }
+
+  /* DECAY WARNING */
+  .decay-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255,59,92,0.06);
+    border: 1px solid rgba(255,59,92,0.2);
+    border-radius: 3px;
+    padding: 10px 16px;
+    margin-bottom: 20px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .decay-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .decay-value {
+    color: var(--red);
+    font-weight: 600;
+  }
+
+  /* Toggle tabs */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tab {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 8px 16px;
+    color: var(--dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    margin-bottom: -1px;
+  }
+
+  .tab.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+  }
+
+  .tab:hover:not(.active) { color: var(--text2); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    .layers-grid { grid-template-columns: repeat(2, 1fr); }
+    .inputs-grid { grid-template-columns: repeat(2, 1fr); }
+    .signal-label { font-size: 48px; }
+    .signal-inner { flex-direction: column; }
+    .confidence-wrap { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <h1>GDXU</h1>
+      <div class="subtitle">Gold Miners 3x Signal Engine · Layer Analysis</div>
+    </div>
+    <div class="header-right">
+      <div class="live-badge">
+        <div class="live-dot" id="liveDot"></div>
+        <span id="liveStatus">AWAITING DATA</span>
+      </div>
+      <div class="timestamp" id="lastUpdate">Last update: —</div>
+    </div>
+  </div>
+
+  <!-- MAIN SIGNAL -->
+  <div class="signal-card hold" id="signalCard">
+    <div class="signal-inner">
+      <div class="signal-label-wrap">
+        <div class="signal-pre">Primary Signal</div>
+        <div class="signal-label hold" id="signalLabel">HOLD</div>
+        <div class="signal-desc" id="signalDesc">Awaiting market data. Enter values manually or connect TradingView webhooks to generate signal.</div>
+      </div>
+      <div class="confidence-wrap">
+        <div class="confidence-label">Confidence</div>
+        <div class="gauge">
+          <svg width="140" height="140" viewBox="0 0 140 140">
+            <circle class="gauge-track" cx="70" cy="70" r="56"/>
+            <circle class="gauge-fill" id="gaugeFill" cx="70" cy="70" r="56"
+              stroke="#f5c542"
+              stroke-dasharray="351.9"
+              stroke-dashoffset="351.9"/>
+          </svg>
+          <div class="gauge-text">
+            <div class="gauge-pct" id="gaugePct" style="color:var(--gold)">—%</div>
+            <div class="gauge-sub">CONF</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DECAY WARNING -->
+  <div class="decay-banner">
+    <div class="decay-icon">⚡</div>
+    <div>
+      <strong style="color:var(--text)">3x Leverage Decay Active</strong> — 
+      Estimated daily decay on sideways volatility: <span class="decay-value" id="decayVal">calculating...</span> · 
+      GDXU is NOT suitable for multi-day holds in high VIX environments
+    </div>
+  </div>
+
+  <!-- KEY ALIGNMENT -->
+  <div class="alignment-card">
+    <div class="alignment-label">DXY + TNX Alignment</div>
+    <div class="alignment-indicators" id="alignPills">
+      <span class="align-pill neutral">DXY: —</span>
+      <span class="align-pill neutral">TNX: —</span>
+      <span class="align-pill neutral">GOLD: —</span>
+      <span class="align-pill neutral">VIX: —</span>
+      <span class="align-pill neutral">WTI: —</span>
+    </div>
+    <div class="key-signal inactive" id="keySignal">⚡ PRIME SETUP: INACTIVE</div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('layers')">Layer Analysis</div>
+    <div class="tab" onclick="switchTab('webhook')">TradingView Setup</div>
+    <div class="tab" onclick="switchTab('manual')">Manual Entry</div>
+    <div class="tab" onclick="switchTab('history')">Signal History</div>
+  </div>
+
+  <!-- LAYERS TAB -->
+  <div class="tab-content active" id="tab-layers">
+    <div class="section-title">Layer 1 — Gold Price Drivers</div>
+    <div class="layers-grid" id="layer1Grid">
+      <!-- Populated by JS -->
+    </div>
+
+    <div class="section-title">Layer 2 — Miner Margin Factors</div>
+    <div class="layers-grid" id="layer2Grid"></div>
+
+    <div class="section-title">Layer 3 — Market Sentiment</div>
+    <div class="layers-grid" id="layer3Grid"></div>
+  </div>
+
+  <!-- WEBHOOK TAB -->
+  <div class="tab-content" id="tab-webhook">
+    <div class="webhook-panel">
+      <div class="section-title">TradingView Webhook Setup</div>
+      <div class="tv-instructions">
+        <p style="margin-bottom:10px;">To connect TradingView alerts, use this endpoint as your webhook URL:</p>
+      </div>
+      <div class="webhook-url-box">
+        <span id="webhookUrl">https://your-deployed-url.com/webhook</span>
+        <button class="copy-btn" onclick="copyWebhook()">COPY</button>
+      </div>
+      <div class="tv-instructions">
+        <p style="margin-bottom:8px;"><strong style="color:var(--text)">Step-by-step setup in TradingView:</strong></p>
+        <p>1. Open each indicator (DXY, TNX, XAUUSD, WTI, VIX, GDX) on TradingView</p>
+        <p>2. Create an Alert → set condition → enable <code>Webhook URL</code></p>
+        <p>3. In the message body, use this JSON template:</p>
+      </div>
+
+      <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:3px;padding:14px;margin:12px 0;font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--blue);line-height:1.8;">
+{<br>
+&nbsp;&nbsp;"symbol": "{{ticker}}",<br>
+&nbsp;&nbsp;"value": {{close}},<br>
+&nbsp;&nbsp;"change_pct": {{change}},<br>
+&nbsp;&nbsp;"timestamp": "{{time}}"<br>
+}
+      </div>
+
+      <div class="tv-instructions">
+        <p style="margin-bottom:8px;"><strong style="color:var(--text)">Symbols to set up alerts for:</strong></p>
+        <p><code>DXY</code> · <code>US10Y</code> (TNX) · <code>XAUUSD</code> · <code>USOIL</code> · <code>VIX</code> · <code>TLT</code> · <code>XAGUSD</code> · <code>GDX</code></p>
+        <br>
+        <p style="color:var(--gold)">⚡ Until webhooks are live, use the Manual Entry tab to calculate signals instantly.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MANUAL TAB -->
+  <div class="tab-content" id="tab-manual">
+    <div class="manual-panel">
+      <div class="section-title">Manual Data Entry</div>
+      <div class="tv-instructions" style="margin-bottom:14px;">Enter current values from TradingView to calculate signal now.</div>
+      <div class="inputs-grid">
+        <div class="input-group">
+          <label>DXY (Dollar Index)</label>
+          <input type="number" id="inp_dxy" placeholder="100.30" step="0.01">
+        </div>
+        <div class="input-group">
+          <label>DXY Change %</label>
+          <input type="number" id="inp_dxy_chg" placeholder="-0.30" step="0.01">
+        </div>
+        <div class="input-group">
+          <label>10Y Yield (TNX %)</label>
+          <input type="number" id="inp_tnx" placeholder="4.25" step="0.01">
+        </div>
+        <div class="input-group">
+          <label>TNX Change %</label>
+          <input type="number" id="inp_tnx_chg" placeholder="-0.50" step="0.01">
+        </div>
+        <div class="input-group">
+          <label>Gold (XAUUSD)</label>
+          <input type="number" id="inp_gold" placeholder="5050" step="1">
+        </div>
+        <div class="input-group">
+          <label>Gold Change %</label>
+          <input type="number" id="inp_gold_chg" placeholder="0.80" step="0.01">
+        </div>
+        <div class="input-group">
+          <label>WTI Oil</label>
+          <input type="number" id="inp_oil" placeholder="70.50" step="0.01">
+        </div>
+        <div class="input-group">
+          <label>Oil Change %</label>
+          <input type="number" id="inp_oil_chg" placeholder="-1.20" step="0.01">
+        </div>
+        <div class="input-group">
+          <label>VIX</label>
+          <input type="number" id="inp_vix" placeholder="18.50" step="0.01">
+        </div>
+        <div class="input-group">
+          <label>VIX Change %</label>
+          <input type="number" id="inp_vix_chg" placeholder="5.00" step="0.01">
+        </div>
+        <div class="input-group">
+          <label>Silver (XAGUSD)</label>
+          <input type="number" id="inp_silver" placeholder="32.00" step="0.01">
+        </div>
+        <div class="input-group">
+          <label>Silver Change %</label>
+          <input type="number" id="inp_silver_chg" placeholder="0.50" step="0.01">
+        </div>
+      </div>
+      <button class="calc-btn" onclick="calculateFromManual()">⚡ CALCULATE SIGNAL</button>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div class="tab-content" id="tab-history">
+    <div class="history-panel">
+      <div class="section-title">Signal Log</div>
+      <div class="history-list" id="historyList">
+        <div style="color:var(--dim);font-size:12px;padding:14px 0;">No signals recorded yet. Run a calculation to begin logging.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────
+const state = {
+  dxy: null, dxy_chg: null,
+  tnx: null, tnx_chg: null,
+  gold: null, gold_chg: null,
+  oil: null, oil_chg: null,
+  vix: null, vix_chg: null,
+  silver: null, silver_chg: null,
+  tlt_chg: null,
+  history: []
+};
+
+// ─── LAYER DEFINITIONS ───────────────────────────────────
+const layers = {
+  layer1: [
+    { key: 'dxy', label: 'DXY', sub: 'Dollar Index', unit: '', invert: true,
+      tip: 'Lower DXY = bullish gold' },
+    { key: 'tnx', label: 'TNX', sub: '10Y Yield', unit: '%', invert: true,
+      tip: 'Lower yields = bullish gold' },
+    { key: 'gold', label: 'XAUUSD', sub: 'Spot Gold', unit: '$', invert: false,
+      tip: 'Primary GDXU driver' },
+  ],
+  layer2: [
+    { key: 'oil', label: 'WTI Oil', sub: 'Mining costs', unit: '$', invert: true,
+      tip: 'Lower oil = better miner margins' },
+    { key: 'silver', label: 'Silver', sub: 'XAGUSD', unit: '$', invert: false,
+      tip: 'Silver/gold ratio signals' },
+    { key: 'gdx_proxy', label: 'GDX Est.', sub: 'Miner index', unit: '$', invert: false,
+      tip: 'GDXU = 3x GDX daily move' },
+  ],
+  layer3: [
+    { key: 'vix', label: 'VIX', sub: 'Fear index', unit: '', invert: true,
+      tip: 'High VIX = risk-off caution' },
+    { key: 'tlt_proxy', label: 'TLT', sub: 'Bond ETF', unit: '$', invert: false,
+      tip: 'Bonds up = yields down = gold up' },
+    { key: 'decay', label: 'Decay Risk', sub: '3x drag', unit: '%', invert: true,
+      tip: 'Estimated daily leveraged decay' },
+  ]
+};
+
+// ─── SIGNAL ENGINE ───────────────────────────────────────
+function computeSignal(data) {
+  let bullScore = 0, bearScore = 0, totalWeight = 0;
+  const reasons = [];
+
+  function score(chg, weight, bullDir, label) {
+    if (chg === null || chg === undefined) return;
+    totalWeight += weight;
+    const bull = bullDir === 'pos' ? chg > 0 : chg < 0;
+    const strong = Math.abs(chg) > 0.5;
+    if (bull) {
+      bullScore += weight * (strong ? 1.2 : 1);
+      reasons.push({ text: `${label} ${bullDir==='pos'?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%`, side: 'bull' });
+    } else {
+      bearScore += weight * (strong ? 1.2 : 1);
+      reasons.push({ text: `${label} ${bullDir==='pos'?'▼':'▲'} ${Math.abs(chg).toFixed(2)}%`, side: 'bear' });
+    }
+  }
+
+  // Layer 1 weights
+  score(data.gold_chg, 30, 'pos', 'Gold');
+  score(data.dxy_chg, 25, 'neg', 'DXY');
+  score(data.tnx_chg, 20, 'neg', 'TNX');
+
+  // Layer 2
+  score(data.oil_chg, 10, 'neg', 'Oil');
+  score(data.silver_chg, 8, 'pos', 'Silver');
+
+  // Layer 3
+  const vixPenalty = data.vix_chg !== null && data.vix_chg > 10 ? -5 : 0;
+  score(data.vix_chg, 7, 'neg', 'VIX');
+
+  if (totalWeight === 0) return null;
+
+  const bullPct = bullScore / (bullScore + bearScore);
+  const confidence = Math.round(Math.max(bullPct, 1 - bullPct) * 100);
+
+  // Prime setup: DXY AND TNX both falling
+  const primeSetup = data.dxy_chg !== null && data.dxy_chg < -0.2 &&
+                     data.tnx_chg !== null && data.tnx_chg < -0.2;
+
+  // Decay risk
+  const vixLevel = data.vix || 20;
+  const decayRisk = ((vixLevel / 100) * 3 * 0.5).toFixed(2);
+
+  let signal, desc;
+
+  if (bullPct >= 0.62) {
+    signal = 'BUY';
+    desc = primeSetup
+      ? '⚡ PRIME SETUP ACTIVE — DXY & TNX both falling. Strongest bullish configuration for gold miners.'
+      : `Bullish alignment across ${reasons.filter(r=>r.side==='bull').length} of ${reasons.length} indicators. Gold miners favored.`;
+  } else if (bullPct <= 0.38) {
+    signal = 'SELL';
+    desc = `Bearish pressure dominant. ${reasons.filter(r=>r.side==='bear').length} of ${reasons.length} indicators pointing against gold miners.`;
+  } else {
+    signal = 'HOLD';
+    desc = 'Mixed signals. Insufficient directional conviction to enter. Wait for alignment.';
+  }
+
+  return { signal, confidence, bullPct, primeSetup, decayRisk, reasons };
+}
+
+// ─── UI UPDATE ───────────────────────────────────────────
+function updateUI(result, data) {
+  if (!result) return;
+
+  const { signal, confidence, primeSetup, decayRisk, reasons } = result;
+
+  // Signal card
+  const card = document.getElementById('signalCard');
+  const label = document.getElementById('signalLabel');
+  const desc = document.getElementById('signalDesc');
+  card.className = 'signal-card ' + signal.toLowerCase();
+  label.className = 'signal-label ' + signal.toLowerCase();
+  label.textContent = signal;
+  desc.textContent = result.desc || '';
+
+  // Gauge
+  const circumference = 351.9;
+  const offset = circumference - (confidence / 100) * circumference;
+  const fill = document.getElementById('gaugeFill');
+  const pct = document.getElementById('gaugePct');
+  fill.style.strokeDashoffset = offset;
+  const color = signal === 'BUY' ? 'var(--green)' : signal === 'SELL' ? 'var(--red)' : 'var(--gold)';
+  fill.style.stroke = color;
+  pct.style.color = color;
+  pct.textContent = confidence + '%';
+
+  // Recompute desc
+  desc.textContent = signal === 'BUY' && primeSetup
+    ? '⚡ PRIME SETUP ACTIVE — DXY & TNX both falling. Strongest bullish configuration for gold miners.'
+    : signal === 'BUY'
+    ? `Bullish alignment across ${reasons.filter(r=>r.side==='bull').length} of ${reasons.length} indicators.`
+    : signal === 'SELL'
+    ? `Bearish pressure dominant. ${reasons.filter(r=>r.side==='bear').length} of ${reasons.length} indicators negative.`
+    : 'Mixed signals across layers. Insufficient conviction. Wait for alignment before entering.';
+
+  // Decay
+  document.getElementById('decayVal').textContent = '~' + decayRisk + '% estimated';
+
+  // Key signal
+  const ks = document.getElementById('keySignal');
+  if (primeSetup) {
+    ks.className = 'key-signal active';
+    ks.textContent = '⚡ PRIME SETUP: ACTIVE';
+  } else {
+    ks.className = 'key-signal inactive';
+    ks.textContent = '⚡ PRIME SETUP: INACTIVE';
+  }
+
+  // Alignment pills
+  updateAlignPills(data);
+
+  // Layer cards
+  updateLayers(data);
+
+  // Live status
+  document.getElementById('liveStatus').textContent = 'LIVE';
+  document.getElementById('lastUpdate').textContent = 'Last update: ' + new Date().toLocaleTimeString();
+
+  // History
+  addHistory(signal, confidence, data);
+}
+
+function pillClass(chg, bullDir) {
+  if (chg === null) return 'neutral';
+  const isBull = bullDir === 'pos' ? chg > 0 : chg < 0;
+  return isBull ? 'bull' : 'bear';
+}
+
+function pillArrow(chg) {
+  if (chg === null) return '—';
+  return chg > 0 ? '▲' + Math.abs(chg).toFixed(2) + '%' : '▼' + Math.abs(chg).toFixed(2) + '%';
+}
+
+function updateAlignPills(data) {
+  const container = document.getElementById('alignPills');
+  container.innerHTML = `
+    <span class="align-pill ${pillClass(data.dxy_chg,'neg')}">DXY ${pillArrow(data.dxy_chg)}</span>
+    <span class="align-pill ${pillClass(data.tnx_chg,'neg')}">TNX ${pillArrow(data.tnx_chg)}</span>
+    <span class="align-pill ${pillClass(data.gold_chg,'pos')}">GOLD ${pillArrow(data.gold_chg)}</span>
+    <span class="align-pill ${pillClass(data.vix_chg,'neg')}">VIX ${pillArrow(data.vix_chg)}</span>
+    <span class="align-pill ${pillClass(data.oil_chg,'neg')}">WTI ${pillArrow(data.oil_chg)}</span>
+  `;
+}
+
+function makeLayerCard(def, data) {
+  const chg = data[def.key + '_chg'] !== undefined ? data[def.key + '_chg'] : null;
+  const val = data[def.key] !== undefined ? data[def.key] : null;
+
+  // Special computed keys
+  let displayVal = val;
+  let displayChg = chg;
+
+  if (def.key === 'gdx_proxy' && data.gold_chg !== null) {
+    displayChg = (data.gold_chg * 0.85).toFixed(2); // GDX typically 85% of gold move
+    displayVal = '~est';
+  }
+  if (def.key === 'tlt_proxy' && data.tnx_chg !== null) {
+    displayChg = (-data.tnx_chg * 0.7).toFixed(2);
+    displayVal = '~est';
+  }
+  if (def.key === 'decay' && data.vix !== null) {
+    displayVal = ((data.vix / 100) * 3 * 0.5).toFixed(2) + '%';
+    displayChg = null;
+  }
+
+  const isBull = displayChg !== null ? (def.invert ? displayChg < 0 : displayChg > 0) : null;
+  const badge = displayChg === null ? 'na' : isBull ? 'bull' : 'bear';
+  const badgeText = displayChg === null ? 'N/A' : isBull ? 'BULL' : 'BEAR';
+  const changeClass = displayChg === null ? 'neu' : isBull ? 'pos' : 'neg';
+  const barPct = displayChg !== null ? Math.min(Math.abs(displayChg) * 10, 100) : 0;
+  const barColor = badge === 'bull' ? 'var(--green)' : badge === 'bear' ? 'var(--red)' : 'var(--dim)';
+
+  return `
+    <div class="layer-card">
+      <div class="layer-header">
+        <div class="layer-name">${def.label} <span style="color:var(--dim);font-size:9px">${def.sub}</span></div>
+        <div class="layer-badge ${badge}">${badgeText}</div>
+      </div>
+      <div class="layer-value">${displayVal !== null ? (typeof displayVal === 'number' ? displayVal.toLocaleString() : displayVal) : '—'}</div>
+      <div class="layer-change ${changeClass}">
+        ${displayChg !== null ? (displayChg > 0 ? '▲' : '▼') + Math.abs(displayChg).toFixed(2) + '%' : '— awaiting data'}
+      </div>
+      <div class="layer-bar">
+        <div class="layer-bar-fill" style="width:${barPct}%;background:${barColor}"></div>
+      </div>
+    </div>
+  `;
+}
+
+function updateLayers(data) {
+  document.getElementById('layer1Grid').innerHTML =
+    layers.layer1.map(d => makeLayerCard(d, data)).join('');
+  document.getElementById('layer2Grid').innerHTML =
+    layers.layer2.map(d => makeLayerCard(d, data)).join('');
+  document.getElementById('layer3Grid').innerHTML =
+    layers.layer3.map(d => makeLayerCard(d, data)).join('');
+}
+
+function addHistory(signal, confidence, data) {
+  const entry = {
+    time: new Date().toLocaleTimeString(),
+    signal, confidence,
+    reason: `Gold ${data.gold_chg !== null ? (data.gold_chg > 0 ? '▲' : '▼') + Math.abs(data.gold_chg).toFixed(2) + '%' : '—'} · DXY ${data.dxy_chg !== null ? (data.dxy_chg > 0 ? '▲' : '▼') + Math.abs(data.dxy_chg).toFixed(2) + '%' : '—'}`
+  };
+  state.history.unshift(entry);
+
+  const list = document.getElementById('historyList');
+  list.innerHTML = state.history.slice(0, 20).map(e => `
+    <div class="history-row">
+      <span class="h-time">${e.time}</span>
+      <span class="h-signal ${e.signal.toLowerCase()}">${e.signal}</span>
+      <span class="h-conf">${e.confidence}%</span>
+      <span class="h-reason">${e.reason}</span>
+    </div>
+  `).join('');
+}
+
+// ─── MANUAL ENTRY ────────────────────────────────────────
+function calculateFromManual() {
+  const g = id => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; };
+
+  const data = {
+    dxy: g('inp_dxy'), dxy_chg: g('inp_dxy_chg'),
+    tnx: g('inp_tnx'), tnx_chg: g('inp_tnx_chg'),
+    gold: g('inp_gold'), gold_chg: g('inp_gold_chg'),
+    oil: g('inp_oil'), oil_chg: g('inp_oil_chg'),
+    vix: g('inp_vix'), vix_chg: g('inp_vix_chg'),
+    silver: g('inp_silver'), silver_chg: g('inp_silver_chg'),
+  };
+
+  const result = computeSignal(data);
+  if (result) {
+    updateUI(result, data);
+    switchTab('layers');
+  } else {
+    alert('Please enter at least Gold, DXY, and TNX values to calculate a signal.');
+  }
+}
+
+// ─── WEBHOOK RECEIVER ────────────────────────────────────
+// This listens for postMessage from a server-side relay or TradingView
+window.addEventListener('message', (event) => {
+  try {
+    const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+    if (!payload.symbol) return;
+
+    const sym = payload.symbol.toUpperCase();
+    const map = {
+      'DXY': ['dxy', 'dxy_chg'],
+      'US10Y': ['tnx', 'tnx_chg'],
+      'TNX': ['tnx', 'tnx_chg'],
+      'XAUUSD': ['gold', 'gold_chg'],
+      'USOIL': ['oil', 'oil_chg'],
+      'VIX': ['vix', 'vix_chg'],
+      'XAGUSD': ['silver', 'silver_chg'],
+    };
+
+    if (map[sym]) {
+      state[map[sym][0]] = payload.value;
+      state[map[sym][1]] = payload.change_pct;
+      const result = computeSignal(state);
+      if (result) updateUI(result, state);
+    }
+  } catch(e) {}
+});
+
+// ─── TABS ────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const tabs = ['layers','webhook','manual','history'];
+    t.classList.toggle('active', tabs[i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => {
+    c.classList.toggle('active', c.id === 'tab-' + name);
+  });
+}
+
+// ─── COPY WEBHOOK ────────────────────────────────────────
+function copyWebhook() {
+  const url = document.getElementById('webhookUrl').textContent;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'COPIED ✓';
+    setTimeout(() => btn.textContent = 'COPY', 2000);
+  });
+}
+
+// ─── INIT ────────────────────────────────────────────────
+// Render empty layer cards on load
+updateLayers({});
+
+// Update decay with default VIX
+document.getElementById('decayVal').textContent = '~0.30% est. (default VIX 20)';
+
+// Demo: load yesterday's data as example
+setTimeout(() => {
+  // Pre-fill with the values visible in your TradingView screenshot
+  document.getElementById('inp_dxy').value = 100.31;
+  document.getElementById('inp_dxy_chg').value = 0.57;
+  document.getElementById('inp_tnx_chg').value = 0.80;
+  document.getElementById('inp_tnx').value = 4.31;
+  document.getElementById('inp_gold').value = 5058;
+  document.getElementById('inp_gold_chg').value = -0.39;
+  document.getElementById('inp_oil').value = 96.45;
+  document.getElementById('inp_oil_chg').value = 0.07;
+  document.getElementById('inp_vix').value = 26.64;
+  document.getElementById('inp_vix_chg').value = -2.38;
+  document.getElementById('inp_silver').value = 81.02;
+  document.getElementById('inp_silver_chg').value = -2.83;
+}, 500);
+</script>
+</body>
+</html>
